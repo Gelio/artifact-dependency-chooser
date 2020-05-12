@@ -57,6 +57,13 @@ csv.parse(rawData, { trim: true }, (err, data) => {
   console.log(implementableTables.map((table) => table.name));
 });
 
+/**
+ * Depth-first search
+ *
+ * @param {object[]} featuresLeft
+ * @param {object[]} featuresSelected
+ * @param {number} tablesImplementable
+ */
 function step(featuresLeft, featuresSelected, tablesImplementable) {
   if (tablesImplementable >= tablesNeeded) {
     return featuresSelected;
