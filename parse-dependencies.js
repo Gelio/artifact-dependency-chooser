@@ -11,7 +11,6 @@ function parseDependencies(data) {
   const dependencies = dependencyNames.map((dependencyName) => ({
     name: dependencyName,
     neededIn: [],
-    cost: 5,
   }));
 
   const artifactNames = artifactNamesRow.slice(DEPENDENCY_STATUS_ROW_OFFSET);

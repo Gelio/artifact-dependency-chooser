@@ -72,7 +72,6 @@ function step(dependenciesLeft, dependenciesSelected, artifactsUnlockedCount) {
 
 function getDependencyValue(dependency) {
   return (
-    dependency.cost +
     sum(dependency.neededIn.map((artifact) => artifact.dependsUpon)) -
     dependency.neededIn.length
   );
