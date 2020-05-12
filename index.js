@@ -2,10 +2,15 @@ const csv = require('csv');
 const fs = require('fs');
 const { sum, sortBy, negate, compose, uniq } = require('ramda');
 
-const csvPath = process.argv[2];
-const tablesNeeded = parseInt(process.argv[3], 10);
+const { parseDependencies } = require('./parse-dependencies');
 
-const DEPENDENCY_STATUS_ROW_OFFSET = 1;
+const csvPath = process.argv[2];
+const artifactsNeeded = parseInt(process.argv[3], 10);
+
+if (!csvPath || !artifactsNeeded) {
+  console.log('Invalid parameters. Please see README.md');
+  return;
+}
 
 const rawData = fs.readFileSync(csvPath, { encoding: 'utf-8' });
 csv.parse(rawData, { trim: true }, (err, data) => {
@@ -14,105 +19,79 @@ csv.parse(rawData, { trim: true }, (err, data) => {
     return;
   }
 
-  const [tableNamesRow, ...featuresAndImplementation] = data;
-  const featureNames = featuresAndImplementation.map((x) => x[0]);
-  const features = featureNames.map((featureName) => ({
-    name: featureName,
-    neededIn: [],
-    cost: 5,
-  }));
+  const dependencies = parseDependencies(data);
 
-  const tableNames = tableNamesRow.slice(DEPENDENCY_STATUS_ROW_OFFSET);
+  const dependenciesResult = step(dependencies, [], 0);
 
-  const tables = tableNames.map((tableName) => ({
-    name: tableName,
-    dependsUpon: 0,
-  }));
-
-  featuresAndImplementation.forEach((row, featureIndex) => {
-    const feature = features[featureIndex];
-    row
-      .slice(DEPENDENCY_STATUS_ROW_OFFSET)
-      .forEach((implementationStatus, tableIndex) => {
-        if (implementationStatus === 'not done') {
-          const table = tables[tableIndex];
-          feature.neededIn.push(table);
-          table.dependsUpon++;
-        }
-      });
-  });
-
-  const result = step(features, [], 0);
-
-  if (!result) {
-    console.log('No solution will allow unlock', tablesNeeded, 'artifacts');
+  if (!dependenciesResult) {
+    console.log('No solution will allow unlock', artifactsNeeded, 'artifacts');
     return;
   }
 
-  console.log(`implementing dependencies (${result.length}):`);
-  console.log(result.map((feature) => feature.name));
+  console.log(`implementing dependencies (${dependenciesResult.length}):`);
+  console.log(dependenciesResult.map((dependency) => dependency.name));
 
-  const implementableTables = getImplementableTables(result);
-  console.log(`will unlock artifacts (${implementableTables.length}):`);
-  console.log(implementableTables.map((table) => table.name));
+  const unlockedArtifacts = getUnlockedArtifacts(dependenciesResult);
+  console.log(`will unlock artifacts (${unlockedArtifacts.length}):`);
+  console.log(unlockedArtifacts.map((artifact) => artifact.name));
 });
 
 /**
  * Depth-first search
  *
- * @param {object[]} featuresLeft
- * @param {object[]} featuresSelected
- * @param {number} tablesImplementable
+ * @param {object[]} dependenciesLeft
+ * @param {object[]} dependenciesSelected
+ * @param {number} artifactsUnlockedCount
  */
-function step(featuresLeft, featuresSelected, tablesImplementable) {
-  if (tablesImplementable >= tablesNeeded) {
-    return featuresSelected;
+function step(dependenciesLeft, dependenciesSelected, artifactsUnlockedCount) {
+  if (artifactsUnlockedCount >= artifactsNeeded) {
+    return dependenciesSelected;
   }
 
-  const featuresToConsider = sortBy(compose(negate, getFeatureValue))(
-    featuresLeft
+  const dependenciesToConsider = sortBy(compose(negate, getDependencyValue))(
+    dependenciesLeft
   );
 
-  for (const feature of featuresToConsider) {
-    selectFeature(feature);
-    featuresSelected.push(feature);
-    const nowImplementable = getImplementableTables([feature]).length;
+  for (const dependency of dependenciesToConsider) {
+    selectDependency(dependency);
+    dependenciesSelected.push(dependency);
+    const unlockedBySelecting = getUnlockedArtifacts([dependency]).length;
     const result = step(
-      featuresLeft.filter((x) => x !== feature),
-      featuresSelected,
-      tablesImplementable + nowImplementable
+      dependenciesLeft.filter((x) => x !== dependency),
+      dependenciesSelected,
+      artifactsUnlockedCount + unlockedBySelecting
     );
     if (result) {
       return result;
     }
 
-    featuresSelected.pop();
-    unselectFeature(feature);
+    dependenciesSelected.pop();
+    unselectDependency(dependency);
   }
 }
 
-function getFeatureValue(feature) {
+function getDependencyValue(dependency) {
   return (
-    feature.cost +
-    sum(feature.neededIn.map((table) => table.dependsUpon)) -
-    feature.neededIn.length
+    dependency.cost +
+    sum(dependency.neededIn.map((artifact) => artifact.dependsUpon)) -
+    dependency.neededIn.length
   );
 }
 
-function selectFeature(feature) {
-  feature.neededIn.forEach((table) => table.dependsUpon--);
+function selectDependency(dependency) {
+  dependency.neededIn.forEach((artifact) => artifact.dependsUpon--);
 }
 
-function unselectFeature(feature) {
-  feature.neededIn.forEach((table) => table.dependsUpon++);
+function unselectDependency(dependency) {
+  dependency.neededIn.forEach((artifact) => artifact.dependsUpon++);
 }
 
-function isTableImplementable(table) {
-  return table.dependsUpon === 0;
+function isArtifactUnlocked(artifact) {
+  return artifact.dependsUpon === 0;
 }
 
-function getImplementableTables(features) {
+function getUnlockedArtifacts(features) {
   return uniq(
-    features.flatMap((feature) => feature.neededIn.filter(isTableImplementable))
+    features.flatMap((feature) => feature.neededIn.filter(isArtifactUnlocked))
   );
 }

@@ -20,7 +20,7 @@ node index.js file.csv 5
 Arguments:
 
 1. `file.csv` is the path to a CSV file that contains dependency status.
-2. `5` is a number that should correspond to the required number of artifacts to unblock
+2. `5` is the required number of artifacts to unblock
 
 ## CSV file format
 
@@ -31,11 +31,13 @@ dependency 2,not done,not done,not done
 dependency 3,not done,not done,n/a
 ```
 
+Dependencies that are required should have `not done` in the cell for a given artifact.
+
 In this example, there are 3 artifacts and 3 dependencies.
 
 ## Example
 
 Each User Story requires various functionalities (dependencies) to be implemented.
 
-Headers in the 1st row would be User Storiese (artifacts), and rows would be functionalities
+Headers in the 1st row would be User Stories (artifacts), and rows would be functionalities
 (dependencies) and their statuses.
